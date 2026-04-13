@@ -1,523 +1,872 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle Word Voice</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mark – Student Developer | AI & Web Systems Builder</title>
+  <meta name="description" content="Mark — Student Developer building AI assistants, emergency systems, and digital tools.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            background: #05050f;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-        }
+    :root {
+      --bg:      #05050f;
+      --cyan:    #00e5ff;
+      --purple:  #a855f7;
+      --pink:    #ec4899;
+      --glass:   rgba(255,255,255,0.045);
+      --glass-b: rgba(255,255,255,0.09);
+      --text:    rgba(255,255,255,0.92);
+      --muted:   rgba(255,255,255,0.48);
+    }
 
-        #pw-canvas {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            cursor: none;
-        }
+    body {
+      background: var(--bg);
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text);
+      height: 700vh;
+      overflow-x: hidden;
+    }
 
-        #pw-ui {
-            position: fixed;
-            bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            z-index: 10;
-        }
+    /* ── Canvas ─────────────────────────────────────────── */
+    #pfx-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
 
-        #pw-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 0.5px solid rgba(255, 255, 255, 0.25);
-            color: #fff;
-            padding: 11px 28px;
-            border-radius: 50px;
-            font-size: 15px;
-            cursor: pointer;
-            font-family: system-ui, sans-serif;
-            letter-spacing: 0.03em;
-            transition: background 0.2s, border-color 0.2s;
-        }
+    /* ── Cursor glow ─────────────────────────────────────── */
+    #cursor-glow {
+      position: fixed;
+      width: 320px; height: 320px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(0,229,255,0.055) 0%, transparent 70%);
+      transform: translate(-50%,-50%);
+      z-index: 1;
+    }
 
-        #pw-btn:hover {
-            background: rgba(255, 255, 255, 0.14);
-            border-color: rgba(255, 255, 255, 0.4);
-        }
+    /* ── Scroll progress ─────────────────────────────────── */
+    #scroll-bar {
+      position: fixed; top: 0; left: 0;
+      height: 2px; width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
+      z-index: 300;
+      transition: width 0.1s linear;
+    }
 
-        #pw-btn.listening {
-            background: rgba(220, 50, 50, 0.25);
-            border-color: rgba(220, 80, 80, 0.7);
-            animation: pw-pulse 1s ease-in-out infinite;
-        }
+    /* ── Nav ─────────────────────────────────────────────── */
+    #nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 52px;
+      background: rgba(5,5,15,0.55);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .nav-logo {
+      font-size: 22px; font-weight: 900; letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-links { display: flex; gap: 36px; list-style: none; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none;
+      font-size: 14px; font-weight: 500; letter-spacing: 0.025em;
+      cursor: pointer; transition: color 0.3s;
+      position: relative;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute; bottom: -4px; left: 0;
+      width: 0; height: 1px;
+      background: var(--cyan); transition: width 0.3s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+    .nav-links a.active { color: var(--cyan); }
 
-        @keyframes pw-pulse {
+    /* ── Section dots ────────────────────────────────────── */
+    #s-dots {
+      position: fixed; right: 28px; top: 50%;
+      transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 14px;
+      z-index: 200;
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      cursor: pointer; transition: all 0.35s;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .dot:hover { background: rgba(255,255,255,0.5); transform: scale(1.2); }
+    .dot.active {
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0,229,255,0.3);
+      transform: scale(1.4); border-color: transparent;
+    }
 
-            0%,
-            100% {
-                box-shadow: 0 0 0 0 rgba(220, 50, 50, 0.35);
-            }
+    /* ── Particle state label ────────────────────────────── */
+    #pfx-label {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.2);
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      z-index: 200; font-family: 'Inter', monospace;
+      transition: color 0.6s; pointer-events: none;
+    }
 
-            50% {
-                box-shadow: 0 0 0 8px rgba(220, 50, 50, 0);
-            }
-        }
+    /* ── Fixed section panels ────────────────────────────── */
+    .section {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 90px 52px 60px;
+      opacity: 0; transform: translateY(28px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+      pointer-events: none; z-index: 10;
+    }
+    .section.active {
+      opacity: 1; transform: translateY(0);
+      pointer-events: all;
+    }
 
-        #pw-status {
-            color: rgba(255, 255, 255, 0.45);
-            font-size: 13px;
-            font-family: system-ui, sans-serif;
-            text-align: center;
-            white-space: nowrap;
-        }
+    /* ═══════════ § 0 HERO ═══════════ */
+    #s-hero { flex-direction: column; text-align: center; }
 
-        #pw-tip {
-            color: rgba(255, 255, 255, 0.2);
-            font-size: 11px;
-            font-family: system-ui, sans-serif;
-            opacity: 0;
-            transition: opacity 0.5s;
-        }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,229,255,0.08);
+      border: 1px solid rgba(0,229,255,0.22);
+      padding: 7px 20px; border-radius: 50px;
+      font-size: 11px; font-weight: 600; color: var(--cyan);
+      letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s 0.1s both;
+    }
+    .blink { animation: blink 1.4s linear infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
 
-        #pw-input-zone {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
+    .hero-name {
+      font-size: clamp(72px,12vw,140px);
+      font-weight: 900; letter-spacing: -0.05em; line-height: 0.95;
+      background: linear-gradient(145deg, #fff 15%, var(--cyan) 55%, var(--purple) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeUp 0.8s 0.2s both;
+    }
+    .hero-title {
+      font-size: clamp(14px,2vw,20px); font-weight: 400; color: var(--muted);
+      margin-top: 18px; letter-spacing: 0.02em;
+      animation: fadeUp 0.8s 0.3s both;
+    }
+    .hero-sub {
+      font-size: 15px; color: rgba(255,255,255,0.36);
+      margin-top: 16px; line-height: 1.7; max-width: 480px;
+      animation: fadeUp 0.8s 0.4s both;
+    }
+    .hero-cta {
+      display: flex; gap: 14px; justify-content: center;
+      margin-top: 44px;
+      animation: fadeUp 0.8s 0.5s both;
+    }
+    .scroll-hint {
+      position: absolute; bottom: 52px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: rgba(255,255,255,0.22);
+      font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+      animation: bounce 2.5s ease-in-out infinite;
+    }
 
-        #pw-input {
-            background: rgba(255, 255, 255, 0.07);
-            border: 0.5px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            padding: 9px 16px;
-            border-radius: 50px;
-            font-size: 14px;
-            outline: none;
-            width: 170px;
-            font-family: system-ui, sans-serif;
-        }
+    /* Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      color: #000; border: none; padding: 14px 40px; border-radius: 50px;
+      font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+      letter-spacing: 0.04em; transition: transform .25s, box-shadow .25s;
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 42px rgba(0,229,255,.35); }
+    .btn-ghost {
+      background: transparent; color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 14px 36px; border-radius: 50px;
+      font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;
+      letter-spacing: 0.03em; transition: all .25s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,.32); color: var(--text); background: rgba(255,255,255,.06); }
 
-        #pw-input::placeholder {
-            color: rgba(255, 255, 255, 0.3);
-        }
+    /* ═══════════ § 1 ABOUT ═══════════ */
+    .about-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 72px; max-width: 1040px; width: 100%; align-items: center;
+    }
+    .section-eyebrow {
+      font-size: 11px; font-weight: 600; color: var(--cyan);
+      letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 14px;
+    }
+    .section-h2 {
+      font-size: clamp(30px,5vw,52px); font-weight: 900;
+      letter-spacing: -0.035em; line-height: 1.08; margin-bottom: 22px;
+    }
+    .section-h2 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .body-p { font-size: 15px; line-height: 1.82; color: rgba(255,255,255,.55); margin-bottom: 18px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+    .chip {
+      background: rgba(0,229,255,.07); border: 1px solid rgba(0,229,255,.2);
+      color: var(--cyan); padding: 6px 16px; border-radius: 50px;
+      font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    }
+    .stat-stack { display: flex; flex-direction: column; gap: 14px; }
+    .stat-card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 18px; padding: 22px 26px;
+      backdrop-filter: blur(14px);
+      display: flex; align-items: center; gap: 18px;
+      transition: border-color .3s, background .3s, transform .3s;
+    }
+    .stat-card:hover { border-color: rgba(0,229,255,.28); background: rgba(0,229,255,.04); transform: translateX(4px); }
+    .stat-icon { font-size: 26px; flex-shrink: 0; }
+    .stat-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .stat-sub { font-size: 12px; color: var(--muted); }
 
-        #pw-input:focus {
-            border-color: rgba(255, 255, 255, 0.4);
-        }
+    /* ═══════════ § 2 SKILLS ═══════════ */
+    .center-col { max-width: 980px; width: 100%; text-align: center; }
+    .section-sub { color: var(--muted); font-size: 15px; margin-top: 8px; margin-bottom: 44px; }
+    .skills-grid {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 14px;
+    }
+    .skill-tile {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 16px; padding: 26px 16px 20px;
+      backdrop-filter: blur(14px); transition: all .3s;
+      position: relative; overflow: hidden;
+    }
+    .skill-tile::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,229,255,.06), transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+    .skill-tile:hover::before { opacity: 1; }
+    .skill-tile:hover { border-color: rgba(0,229,255,.35); transform: translateY(-5px); box-shadow: 0 18px 50px rgba(0,229,255,.09); }
+    .skill-emoji { font-size: 28px; margin-bottom: 10px; display: block; }
+    .skill-name { font-size: 12px; font-weight: 700; letter-spacing: .03em; margin-bottom: 10px; }
+    .skill-bar-wrap { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+    .skill-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--cyan), var(--purple)); }
 
-        #pw-go {
-            background: rgba(255, 255, 255, 0.08);
-            border: 0.5px solid rgba(255, 255, 255, 0.25);
-            color: #fff;
-            padding: 9px 18px;
-            border-radius: 50px;
-            font-size: 13px;
-            cursor: pointer;
-            font-family: system-ui, sans-serif;
-        }
+    /* ═══════════ § 3 PROJECTS ═══════════ */
+    .projects-wrap { max-width: 1100px; width: 100%; }
+    .projects-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-top: 40px; }
+    .project-card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 22px; padding: 30px 26px 26px;
+      backdrop-filter: blur(16px); transition: all .35s;
+      position: relative; overflow: hidden;
+    }
+    .project-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--card-top, linear-gradient(90deg,var(--cyan),var(--purple)));
+      opacity: 0; transition: opacity .3s;
+    }
+    .project-card:hover::after { opacity: 1; }
+    .project-card:hover { border-color: rgba(255,255,255,.16); transform: translateY(-7px); box-shadow: 0 28px 72px rgba(0,0,0,.45); }
+    .project-emoji { font-size: 34px; margin-bottom: 14px; display: block; }
+    .project-name { font-size: 19px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 8px; }
+    .project-desc { font-size: 13px; color: var(--muted); line-height: 1.72; margin-bottom: 18px; }
+    .feature-list { list-style: none; margin-bottom: 22px; }
+    .feature-list li {
+      font-size: 12px; color: rgba(255,255,255,.44);
+      padding: 3px 0; display: flex; align-items: center; gap: 9px;
+    }
+    .feature-list li::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--dot-c, var(--cyan)); flex-shrink: 0;
+    }
+    .project-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; padding: 8px 18px; border-radius: 50px;
+      border: 1px solid rgba(255,255,255,.12); color: var(--muted);
+      text-decoration: none; background: rgba(255,255,255,.04);
+      cursor: pointer; transition: all .22s; letter-spacing: .03em;
+    }
+    .pill:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,229,255,.06); }
 
-        #pw-go:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
+    /* ═══════════ § 4 DIFFERENT ═══════════ */
+    .diff-wrap { max-width: 920px; width: 100%; text-align: center; }
+    .diff-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-top: 44px; }
+    .diff-card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 20px; padding: 38px 22px;
+      backdrop-filter: blur(14px); transition: all .3s;
+      position: relative; overflow: hidden;
+    }
+    .diff-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(168,85,247,.12), transparent 65%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .diff-card:hover::before { opacity: 1; }
+    .diff-card:hover { border-color: rgba(168,85,247,.35); transform: translateY(-5px); }
+    .diff-num {
+      font-size: 52px; font-weight: 900; letter-spacing: -.05em; line-height: 1;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 14px;
+    }
+    .diff-title { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+    .diff-body { font-size: 13px; color: var(--muted); line-height: 1.68; }
 
-        #pw-hint {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            color: rgba(255, 255, 255, 0.15);
-            font-size: 11px;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+    /* ═══════════ § 5 CONTACT ═══════════ */
+    .contact-wrap { max-width: 620px; width: 100%; text-align: center; }
+    .contact-box {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 26px; padding: 44px;
+      backdrop-filter: blur(18px); margin-top: 44px;
+    }
+    .contact-intro { font-size: 15px; color: var(--muted); line-height: 1.78; margin-bottom: 32px; }
+    .c-links { display: flex; flex-direction: column; gap: 13px; }
+    .c-link {
+      display: flex; align-items: center; gap: 16px; padding: 18px 22px;
+      border-radius: 14px; border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.03); text-decoration: none;
+      color: var(--text); font-size: 14px; font-weight: 500; transition: all .28s;
+    }
+    .c-link:hover { border-color: var(--cyan); background: rgba(0,229,255,.05); transform: translateX(5px); }
+    .c-i { font-size: 20px; flex-shrink: 0; }
+    .c-t { flex: 1; text-align: left; }
+    .c-a { opacity: .35; transition: opacity .2s, transform .2s; }
+    .c-link:hover .c-a { opacity: 1; transform: translateX(3px); }
 
-        #pw-transcript {
-            margin-bottom: 12px;
-            color: rgba(255, 255, 255, 0.85);
-            font-family: inherit;
-            font-size: 18px;
-            font-weight: 500;
-            text-align: center;
-            max-width: 400px;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
-            min-height: 1.5em;
-            line-height: 1.4;
-        }
-    </style>
+    /* ── Animations ──────────────────────────────────────── */
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes bounce   { 0%,100%{transform:translateX(-50%) translateY(0);opacity:.4} 50%{transform:translateX(-50%) translateY(10px);opacity:1} }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media(max-width:900px) {
+      #nav { padding: 16px 24px; }
+      .section { padding: 80px 24px 48px; }
+      .about-grid { grid-template-columns: 1fr; gap: 28px; }
+      .skills-grid { grid-template-columns: repeat(2,1fr); }
+      .projects-grid { grid-template-columns: 1fr; }
+      .diff-grid { grid-template-columns: 1fr; }
+      #s-dots { display: none; }
+    }
+    @media(max-width:600px) {
+      .nav-links { display: none; }
+      .contact-box { padding: 28px 22px; }
+    }
+  </style>
 </head>
-
 <body>
 
-    <canvas id="pw-canvas"></canvas>
+<!-- Canvas -->
+<canvas id="pfx-canvas"></canvas>
 
-    <div id="pw-ui">
-        <div id="pw-transcript"></div>
-        <div id="pw-input-zone">
-            <input id="pw-input" type="text" placeholder="type a phrase here..." maxlength="100" />
+<!-- Cursor glow -->
+<div id="cursor-glow"></div>
+
+<!-- Scroll bar -->
+<div id="scroll-bar"></div>
+
+<!-- Nav -->
+<nav id="nav">
+  <div class="nav-logo">MK.</div>
+  <ul class="nav-links">
+    <li><a id="nl-0" class="active" onclick="goTo(0)">Home</a></li>
+    <li><a id="nl-1" onclick="goTo(1)">About</a></li>
+    <li><a id="nl-2" onclick="goTo(2)">Skills</a></li>
+    <li><a id="nl-3" onclick="goTo(3)">Projects</a></li>
+    <li><a id="nl-4" onclick="goTo(4)">Unique</a></li>
+    <li><a id="nl-5" onclick="goTo(5)">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- Section dots -->
+<div id="s-dots">
+  <div class="dot active" onclick="goTo(0)" title="Home"></div>
+  <div class="dot"        onclick="goTo(1)" title="About"></div>
+  <div class="dot"        onclick="goTo(2)" title="Skills"></div>
+  <div class="dot"        onclick="goTo(3)" title="Projects"></div>
+  <div class="dot"        onclick="goTo(4)" title="Different"></div>
+  <div class="dot"        onclick="goTo(5)" title="Contact"></div>
+</div>
+
+<!-- Particle label -->
+<div id="pfx-label">● sphere · idle</div>
+
+<!-- ═══════════════ SECTIONS ═══════════════ -->
+
+<!-- § 0 HERO -->
+<section id="s-hero" class="section active">
+  <div class="hero-badge"><span class="blink">●</span> Open to projects &amp; collabs</div>
+  <h1 class="hero-name">Mark</h1>
+  <p class="hero-title">Student Developer &nbsp;·&nbsp; AI &amp; Web Systems Builder</p>
+  <p class="hero-sub">I build AI assistants, emergency systems, and digital tools using web and machine learning.</p>
+  <div class="hero-cta">
+    <button class="btn-primary" onclick="goTo(3)">View Projects</button>
+    <button class="btn-ghost"   onclick="goTo(5)">Contact Me</button>
+  </div>
+  <div class="scroll-hint">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+    Scroll to explore
+  </div>
+</section>
+
+<!-- § 1 ABOUT -->
+<section id="s-about" class="section">
+  <div class="about-grid">
+    <div>
+      <p class="section-eyebrow">01 — About Me</p>
+      <h2 class="section-h2">Who I <em>Am</em></h2>
+      <p class="body-p">I'm a student developer focused on building AI systems, web applications, and practical tools like emergency platforms and library management systems.</p>
+      <p class="body-p">I enjoy combining machine learning with interactive web development — creating things that don't just look good, but actually solve real problems.</p>
+      <div class="chip-row">
+        <span class="chip">AI Builder</span>
+        <span class="chip">Web Dev</span>
+        <span class="chip">Systems Thinker</span>
+        <span class="chip">ML Learner</span>
+        <span class="chip">Problem Solver</span>
+      </div>
+    </div>
+    <div class="stat-stack">
+      <div class="stat-card">
+        <span class="stat-icon">🎓</span>
+        <div>
+          <div class="stat-title">Student Developer</div>
+          <div class="stat-sub">Building real systems, not just tutorial clones</div>
         </div>
-        <div id="pw-status">interactive sphere ready</div>
-        <div id="pw-tip">move cursor over word to repel &bull; double-click to reset</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🤖</span>
+        <div>
+          <div class="stat-title">AI Enthusiast</div>
+          <div class="stat-sub">Groq · Claude · OpenAI in real apps</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🚀</span>
+        <div>
+          <div class="stat-title">Systems Builder</div>
+          <div class="stat-sub">Emergency platforms, automation, assistants</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⚡</span>
+        <div>
+          <div class="stat-title">Fast Learner</div>
+          <div class="stat-sub">Always exploring what's next in tech</div>
+        </div>
+      </div>
     </div>
+  </div>
+</section>
 
-    <div id="pw-hint">
-        <span>double-click to reset</span>
+<!-- § 2 SKILLS -->
+<section id="s-skills" class="section">
+  <div class="center-col">
+    <p class="section-eyebrow">02 — Skills</p>
+    <h2 class="section-h2" style="text-align:center">What I <em>Use</em></h2>
+    <p class="section-sub">Technologies I actually use — not just keywords on a resume</p>
+    <div class="skills-grid">
+      <div class="skill-tile"><span class="skill-emoji">🌐</span><div class="skill-name">HTML / CSS</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:90%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">⚡</span><div class="skill-name">JavaScript</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:82%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🐍</span><div class="skill-name">Python</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:78%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🔌</span><div class="skill-name">APIs (AI / Backend)</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:80%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🧠</span><div class="skill-name">Machine Learning</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:65%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🎨</span><div class="skill-name">UI Development</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:86%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🤖</span><div class="skill-name">AI Integration</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:74%"></div></div></div>
+      <div class="skill-tile"><span class="skill-emoji">🐙</span><div class="skill-name">Git &amp; GitHub</div><div class="skill-bar-wrap"><div class="skill-bar-fill" style="width:72%"></div></div></div>
     </div>
+  </div>
+</section>
 
-    <script>
-        (function () {
+<!-- § 3 PROJECTS -->
+<section id="s-projects" class="section">
+  <div class="projects-wrap">
+    <p class="section-eyebrow" style="text-align:center">03 — Projects</p>
+    <h2 class="section-h2" style="text-align:center">What I've <em>Built</em></h2>
+    <div class="projects-grid">
 
-            /* ─── Canvas setup ─────────────────────────────────────────────── */
-            const canvas = document.getElementById('pw-canvas');
-            const ctx = canvas.getContext('2d');
-            const statusEl = document.getElementById('pw-status');
-            const tipEl = document.getElementById('pw-tip');
-            const pwInput = document.getElementById('pw-input');
-            const transcriptEl = document.getElementById('pw-transcript');
+      <div class="project-card" style="--card-top:linear-gradient(90deg,#f43f5e,#ef4444)">
+        <span class="project-emoji">🚨</span>
+        <div class="project-name">Safe Ko</div>
+        <p class="project-desc">Community emergency reporting and safety platform for real-time incident management.</p>
+        <ul class="feature-list" style="--dot-c:#f43f5e">
+          <li>Real-time incident reporting</li>
+          <li>Community alert system</li>
+          <li>Safety response improvement</li>
+        </ul>
+        <div class="project-links">
+          <a class="pill" href="https://github.com/Axshatt" target="_blank">⌥ GitHub</a>
+          <a class="pill" href="#">▶ Demo</a>
+        </div>
+      </div>
 
-            let W, H, CX, CY, dpr;
+      <div class="project-card" style="--card-top:linear-gradient(90deg,#3b82f6,#06b6d4)">
+        <span class="project-emoji">📚</span>
+        <div class="project-name">InfoTool</div>
+        <p class="project-desc">Digital library management system with book records, borrowing tracking, and admin control.</p>
+        <ul class="feature-list" style="--dot-c:#3b82f6">
+          <li>Borrow &amp; return tracking</li>
+          <li>Full book database</li>
+          <li>Admin &amp; user structure</li>
+        </ul>
+        <div class="project-links">
+          <a class="pill" href="https://github.com/Axshatt" target="_blank">⌥ GitHub</a>
+          <a class="pill" href="#">▶ Demo</a>
+        </div>
+      </div>
 
-            function resize() {
-                dpr = window.devicePixelRatio || 1;
-                W = window.innerWidth;
-                H = window.innerHeight;
-                CX = W / 2;
-                CY = H / 2;
-                canvas.width = W * dpr;
-                canvas.height = H * dpr;
-                canvas.style.width = W + 'px';
-                canvas.style.height = H + 'px';
-                ctx.scale(dpr, dpr);
-                if (appState === 0) initSphereTargets();
-            }
+      <div class="project-card" style="--card-top:linear-gradient(90deg,#a855f7,#6366f1)">
+        <span class="project-emoji">🤖</span>
+        <div class="project-name">Artemis AI</div>
+        <p class="project-desc">AI-powered assistant for automation and interaction — a personal Jarvis built on API intelligence.</p>
+        <ul class="feature-list" style="--dot-c:#a855f7">
+          <li>Chat &amp; assistant features</li>
+          <li>API-based intelligence</li>
+          <li>Expanding automation system</li>
+        </ul>
+        <div class="project-links">
+          <a class="pill" href="https://github.com/Axshatt" target="_blank">⌥ GitHub</a>
+          <a class="pill" href="#">▶ Demo</a>
+        </div>
+      </div>
 
-            let audioLevel = 0; // Disabled feature
+    </div>
+  </div>
+</section>
 
-            /* ─── Particle data (Float32Arrays for zero-GC perf) ───────────── */
-            const N = 10000; // Ultra-high resolution for maximum clarity
-            const px = new Float32Array(N);  // position x
-            const py = new Float32Array(N);  // position y
-            const pz = new Float32Array(N);  // position z
-            const vx = new Float32Array(N);  // velocity x
-            const vy = new Float32Array(N);  // velocity y
-            const vz = new Float32Array(N);  // velocity z
-            const tx = new Float32Array(N);  // target x
-            const ty = new Float32Array(N);  // target y
-            const tz = new Float32Array(N);  // target z
-            const ox = new Float32Array(N);  // sphere-home x
-            const oy = new Float32Array(N);  // sphere-home y
-            const oz = new Float32Array(N);  // sphere-home z
-            const hue = new Float32Array(N);  // per-particle hue
-            const phase = new Float32Array(N);  // per-particle wobble phase
+<!-- § 4 DIFFERENT -->
+<section id="s-different" class="section">
+  <div class="diff-wrap">
+    <p class="section-eyebrow">04 — Unique Value</p>
+    <h2 class="section-h2" style="text-align:center">What Makes Me <em>Different</em></h2>
+    <p class="section-sub">I don't just build websites — I build systems that solve real problems</p>
+    <div class="diff-grid">
+      <div class="diff-card">
+        <div class="diff-num">01</div>
+        <div class="diff-title">Systems Mindset</div>
+        <p class="diff-body">I think beyond the UI — designing full systems with real logic, data flow, and meaningful user impact.</p>
+      </div>
+      <div class="diff-card">
+        <div class="diff-num">02</div>
+        <div class="diff-title">AI-First Approach</div>
+        <p class="diff-body">I integrate real AI APIs — Groq, Claude, OpenAI — into working products, not just demos or mockups.</p>
+      </div>
+      <div class="diff-card">
+        <div class="diff-num">03</div>
+        <div class="diff-title">Real-World Focus</div>
+        <p class="diff-body">Emergency platforms, library tools, automation — every project has a real use case behind it.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-            /* ─── State ─────────────────────────────────────────────────────── */
-            // 0 = sphere | 1 = forming word | 2 = word + repel active
-            let appState = 0;
-            let mouseX = -9999;
-            let mouseY = -9999;
-            let t = 0;
+<!-- § 5 CONTACT -->
+<section id="s-contact" class="section">
+  <div class="contact-wrap">
+    <p class="section-eyebrow">05 — Contact</p>
+    <h2 class="section-h2" style="text-align:center">Let's <em>Connect</em></h2>
+    <div class="contact-box">
+      <p class="contact-intro">Have a project idea? Want to collaborate?<br>Or just want to say hello — I'm always up to talk tech.</p>
+      <div class="c-links">
+        <a class="c-link" href="mailto:mark@example.com" id="contact-email">
+          <span class="c-i">📧</span><span class="c-t">mark@example.com</span><span class="c-a">→</span>
+        </a>
+        <a class="c-link" href="https://github.com/Axshatt" target="_blank" id="contact-github">
+          <span class="c-i">🐙</span><span class="c-t">github.com/Axshatt</span><span class="c-a">→</span>
+        </a>
+        <a class="c-link" href="#" id="contact-discord">
+          <span class="c-i">💬</span><span class="c-t">Discord — coming soon</span><span class="c-a">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
 
-            const REPEL_RADIUS = 100;   // px — cursor influence radius
-            const REPEL_FORCE = 8;    // strength of repulsion
-            const PHI = Math.PI * (1 + Math.sqrt(5)); // golden angle
+<!-- ═══════════════ SCRIPTS ═══════════════ -->
+<script>
+/* ═══════════════════════════════════════════════════════
+   PARTICLE ENGINE  (based on ParticleText / index.html)
+═══════════════════════════════════════════════════════ */
+const PFX = (function () {
 
-            let rotX = 0, rotY = 0;
-            const FOV = 550;
-            const CAMERA_Z = 600;
+  const canvas = document.getElementById('pfx-canvas');
+  const ctx    = canvas.getContext('2d');
+  const label  = document.getElementById('pfx-label');
 
-            /* ─── Fibonacci sphere distribution (3D) ────────────────────────── */
-            function initSphereTargets() {
-                const baseDim = Math.min(W, H);
-                // Make sphere smaller on big screens for better aesthetics
-                const R = baseDim > 1200 ? baseDim * 0.28 : baseDim * 0.42; 
-                for (let i = 0; i < N; i++) {
-                    const polar = Math.acos(1 - 2 * (i + 0.5) / N);
-                    const azim = PHI * i;
+  let W, H, CX, CY, dpr;
 
-                    ox[i] = Math.sin(polar) * Math.cos(azim) * R;
-                    oy[i] = Math.sin(polar) * Math.sin(azim) * R;
-                    oz[i] = Math.cos(polar) * R;
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    CX = W / 2; CY = H / 2;
+    canvas.width  = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.scale(dpr, dpr);
+    buildFormation(curFID);
+  }
 
-                    tx[i] = ox[i];
-                    ty[i] = oy[i];
-                    tz[i] = oz[i];
-                }
-            }
+  /* ── Arrays ───────────────────────────────────────── */
+  const N   = 8000;
+  const px  = new Float32Array(N), py  = new Float32Array(N), pz = new Float32Array(N);
+  const vx  = new Float32Array(N), vy  = new Float32Array(N), vz = new Float32Array(N);
+  const tx  = new Float32Array(N), ty  = new Float32Array(N), tz = new Float32Array(N);
+  const hue = new Float32Array(N), pha = new Float32Array(N);
 
-            /* ─── Particle initialisation ───────────────────────────────────── */
-            function initParticles() {
-                for (let i = 0; i < N; i++) {
-                    // scatter randomly in 3D volume
-                    px[i] = (Math.random() - 0.5) * W * 2;
-                    py[i] = (Math.random() - 0.5) * H * 2;
-                    pz[i] = (Math.random() - 0.5) * 1000;
-                    vx[i] = vy[i] = vz[i] = 0;
-                    hue[i] = (i / N) * 320 + 170;
-                    phase[i] = Math.random() * Math.PI * 2;
-                }
-            }
+  const PHI = Math.PI * (1 + Math.sqrt(5));
+  const FOV = 550, CAM = 600;
+  let rotY = 0, t = 0, mX = -9999, mY = -9999, curFID = 0;
 
-            /* ─── Sample pixel positions from rendered text ─────────────────── */
-            function sampleTextPositions(phrase) {
-                const cW = Math.floor(W);
-                const cH = Math.floor(H);
-                const off = document.createElement('canvas');
-                off.width = cW;
-                off.height = cH;
-                const c2 = off.getContext('2d');
+  /* ── Formations ───────────────────────────────────── */
 
-                // Intelligent multi-line wrapping
-                const words = phrase.split(' ');
-                const lines = [];
-                let currentLine = '';
-                const maxChars = phrase.length > 25 ? 12 : 20;
+  // 0 — Fibonacci sphere
+  function fSphere() {
+    const R = Math.min(W, H) * 0.34;
+    for (let i = 0; i < N; i++) {
+      const p = Math.acos(1 - 2 * (i + 0.5) / N), a = PHI * i;
+      tx[i] = Math.sin(p) * Math.cos(a) * R;
+      ty[i] = Math.sin(p) * Math.sin(a) * R;
+      tz[i] = Math.cos(p) * R;
+    }
+  }
 
-                words.forEach(word => {
-                    if ((currentLine + word).length > maxChars) {
-                        lines.push(currentLine.trim());
-                        currentLine = word + ' ';
-                    } else {
-                        currentLine += word + ' ';
-                    }
-                });
-                lines.push(currentLine.trim());
+  // helper — sample text pixels
+  function sampleText(word, scl) {
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const c2 = off.getContext('2d');
+    const fs = Math.min(W * 0.52, H * 0.42, 150) * (scl || 1);
+    c2.fillStyle = '#fff';
+    c2.font = `900 ${fs}px Arial Black,Arial,sans-serif`;
+    c2.textAlign = 'center'; c2.textBaseline = 'middle';
+    c2.fillText(word, W / 2, H / 2);
+    const d = c2.getImageData(0, 0, W, H).data;
+    const pts = [];
+    for (let y = 0; y < H; y += 2)
+      for (let x = 0; x < W; x += 2)
+        if (d[(y * W + x) * 4 + 3] > 100)
+          pts.push(x - W/2 + (Math.random()-.5), y - H/2 + (Math.random()-.5));
+    const C = pts.length / 2;
+    for (let i = 0; i < N; i++) {
+      const k = (i % C) * 2;
+      tx[i] = pts[k]; ty[i] = pts[k+1]; tz[i] = (Math.random()-.5)*18;
+    }
+    rotY = 0;
+  }
 
-                // Auto-scale font
-                let fs = Math.min(cW * 0.72 / (maxChars * 0.5), cH * 0.50 / lines.length, 180);
-                if (phrase.length > 30) fs *= 0.8;
+  // 1 — text "MARK"
+  function fMark()  { sampleText('MARK',  1.0); }
 
-                c2.fillStyle = '#fff';
-                c2.font = `900 ${fs}px Arial Black, Arial, sans-serif`;
-                c2.textAlign = 'center';
-                c2.textBaseline = 'middle';
+  // 2 — circuit grid
+  function fGrid() {
+    const cols = 88, rows = 44;
+    const sx = W * 0.013, sy = H * 0.021;
+    const ox = -(cols/2)*sx, oy = -(rows/2)*sy;
+    for (let i = 0; i < N; i++) {
+      const c = i % cols, r = Math.floor(i/cols) % rows;
+      tx[i] = ox + c*sx + (Math.random()-.5)*3;
+      ty[i] = oy + r*sy + (Math.random()-.5)*3;
+      tz[i] = Math.sin(c*.35 + r*.28) * 28;
+    }
+    rotY = 0;
+  }
 
-                const lineHeight = fs * 1.1;
-                const startY = (cH / 2) - ((lines.length - 1) * lineHeight / 2);
+  // 3 — double helix
+  function fHelix() {
+    const ht = H * 0.72;
+    for (let i = 0; i < N; i++) {
+      const u = i / N, ang = u * Math.PI * 10, y = (u-.5)*ht;
+      const s = i % 3;
+      let x, z;
+      if (s === 0) { x = Math.cos(ang)*130; z = Math.sin(ang)*130; }
+      else if (s === 1) { x = Math.cos(ang+Math.PI)*130; z = Math.sin(ang+Math.PI)*130; }
+      else {
+        const f = (ang % Math.PI) / Math.PI;
+        x = Math.cos(ang)*130*(1-f) + Math.cos(ang+Math.PI)*130*f;
+        z = Math.sin(ang)*130*(1-f) + Math.sin(ang+Math.PI)*130*f;
+      }
+      tx[i] = x + (Math.random()-.5)*5;
+      ty[i] = y + (Math.random()-.5)*4;
+      tz[i] = z;
+    }
+    rotY = 0;
+  }
 
-                lines.forEach((line, i) => {
-                    c2.fillText(line, cW / 2, startY + (i * lineHeight));
-                });
+  // 4 — galaxy spiral
+  function fGalaxy() {
+    const R = Math.min(W, H) * 0.34, arms = 5;
+    for (let i = 0; i < N; i++) {
+      const frac = i / N, r = frac * R;
+      const ang  = (i % arms) / arms * Math.PI * 2 + frac * Math.PI * 6;
+      const spr  = r * 0.22 * (Math.random() - .5);
+      tx[i] = Math.cos(ang)*r + Math.cos(ang+Math.PI/2)*spr;
+      ty[i] = Math.sin(ang)*r + Math.sin(ang+Math.PI/2)*spr;
+      tz[i] = (Math.random()-.5)*55;
+    }
+    rotY = 0;
+  }
 
-                const data = c2.getImageData(0, 0, cW, cH).data;
-                const pts = [];
-                // Ultra-fine sampling for high accuracy
-                const step = phrase.length > 30 ? 2 : 1; 
+  // 5 — text "HELLO"
+  function fHello() { sampleText('HELLO', .85); }
 
-                for (let y = 0; y < cH; y += step) {
-                    for (let x = 0; x < cW; x += step) {
-                        if (data[(y * cW + x) * 4 + 3] > 120) {
-                            // Add slight pixel-level jitter to targets to avoid "grid" look
-                            pts.push(x - cW / 2 + (Math.random() - 0.5) * 0.8, y - cH / 2 + (Math.random() - 0.5) * 0.8);
-                        }
-                    }
-                }
+  const BUILDERS = [fSphere, fMark, fGrid, fHelix, fGalaxy, fHello];
+  const LABELS   = [
+    '● sphere · idle', '● text · MARK',
+    '● grid · skills', '● helix · projects',
+    '● galaxy · unique', '● text · HELLO'
+  ];
 
-                for (let i = pts.length / 2 - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    const ia = i * 2, ja = j * 2;
-                    let tmp = pts[ia]; pts[ia] = pts[ja]; pts[ja] = tmp;
-                    tmp = pts[ia + 1]; pts[ia + 1] = pts[ja + 1]; pts[ja + 1] = tmp;
-                }
+  function buildFormation(id) {
+    curFID = id;
+    label.textContent = LABELS[id];
+    BUILDERS[id]();
+  }
 
-                return pts;
-            }
+  /* ── Init particles ────────────────────────────────── */
+  function init() {
+    for (let i = 0; i < N; i++) {
+      px[i] = (Math.random()-.5)*W*2; py[i] = (Math.random()-.5)*H*2; pz[i] = (Math.random()-.5)*1000;
+      vx[i] = vy[i] = vz[i] = 0;
+      hue[i] = (i/N)*320+170; pha[i] = Math.random()*Math.PI*2;
+    }
+  }
 
-            /* ─── Trigger word formation ────────────────────────────────────── */
-            let formTimeout;
-            function formWord(phrase, isInterim = false) {
-                if (!phrase.trim()) return;
-                
-                appState = 1;
-                tipEl.style.opacity = '0';
-                statusEl.textContent = isInterim ? 'capturing...' : 'sentence active';
+  /* ── Physics ───────────────────────────────────────── */
+  function update() {
+    t += .005;
+    if (curFID === 0) rotY += .0048;
+    const jitter = curFID === 0 ? 1.6 : 0;
+    const sp     = curFID === 0 ? .018 : .025;
 
-                const pts = sampleTextPositions(phrase);
-                const pCount = pts.length / 2;
+    for (let i = 0; i < N; i++) {
+      const cY = Math.cos(rotY), sY = Math.sin(rotY);
+      let tX = tx[i]*cY - tz[i]*sY, tY = ty[i], tZ = tx[i]*sY + tz[i]*cY;
 
-                for (let i = 0; i < N; i++) {
-                    const idx = (i % pCount) * 2;
-                    tx[i] = pts[idx];
-                    ty[i] = pts[idx + 1];
-                    tz[i] = 0; 
-                }
+      if (curFID === 0) {
+        tX += Math.sin(t*8  + pha[i]) * jitter;
+        tY += Math.cos(t*9  + pha[i]) * jitter;
+        tZ += Math.sin(t*7  + pha[i]*2) * jitter;
+      }
 
-                rotY = 0; 
-                t = 0; // Reset internal time phase for consistency
-                clearTimeout(formTimeout);
-                if (!isInterim) {
-                    formTimeout = setTimeout(() => {
-                        appState = 2;
-                        statusEl.textContent = 'move cursor to repel';
-                        tipEl.style.opacity = '1';
-                    }, 2000);
-                }
-            }
+      vx[i] += (tX - px[i]) * sp;
+      vy[i] += (tY - py[i]) * sp;
+      vz[i] += (tZ - pz[i]) * sp;
 
-            /* ─── Physics update ────────────────────────────────────────────── */
-            function update() {
-                t += 0.005; 
-                // Only rotate and jitter when in Sphere mode (appState 0)
-                if (appState === 0) rotY += 0.006; 
-                
-                const jitter = appState === 0 ? 1.8 : 0; // Constant floating motion for sphere
+      // mouse repulsion
+      if (mX > 0) {
+        const sc = FOV / (FOV + pz[i] + CAM);
+        const sx = px[i]*sc + CX, sy = py[i]*sc + CY;
+        const dx = sx-mX, dy = sy-mY, d2 = dx*dx+dy*dy, RE = 85;
+        if (d2 < RE*RE && d2 > 1) {
+          const d = Math.sqrt(d2), mag = 5*(1-d/RE)*5;
+          vx[i] += dx/d*mag; vy[i] += dy/d*mag;
+        }
+      }
 
+      vx[i] *= .84; vy[i] *= .84; vz[i] *= .84;
+      px[i] += vx[i]; py[i] += vy[i]; pz[i] += vz[i];
+    }
+  }
 
-                for (let i = 0; i < N; i++) {
-                    let curTx = tx[i], curTy = ty[i], curTz = tz[i];
+  /* ── Render ────────────────────────────────────────── */
+  function draw() {
+    ctx.fillStyle = 'rgba(5,5,15,.2)';
+    ctx.fillRect(0, 0, W, H);
 
-                    // Horizontal (Y-axis) rotation only
-                    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    for (let i = 0; i < N; i++) {
+      const zPos = pz[i] + CAM;
+      if (zPos < 10) continue;
+      const sc   = FOV / zPos;
+      const sx   = px[i]*sc + CX, sy = py[i]*sc + CY;
+      const spd  = Math.sqrt(vx[i]*vx[i] + vy[i]*vy[i] + vz[i]*vz[i]);
+      let   a    = Math.min(1, (.16 + spd*.08) * sc * .72);
+      let   sz   = Math.max(.28, (.32 + spd*.1) * sc);
+      let h, s, l;
 
-                    let targetX = curTx * cosY - curTz * sinY;
-                    let targetY = curTy;
-                    let targetZ = curTx * sinY + curTz * cosY;
+      switch (curFID) {
+        case 0: h = (hue[i]+t*22)%360; s=80; l=70; break;
+        case 1: h = 188+Math.sin(t+pha[i])*18; s=90; l=82; a=Math.min(1,a*1.7); sz*=.82; break;
+        case 2: h = 175+(i/N)*55; s=88; l=72; a=Math.min(1,a*1.35); break;
+        case 3: h = 268+Math.sin(t*1.8+pha[i])*48; s=92; l=76; a=Math.min(1,a*1.5); break;
+        case 4: h = 36+Math.sin(t+pha[i])*22; s=96; l=70; a=Math.min(1,a*1.55); break;
+        case 5: h = 185+Math.sin(t*1.2+pha[i])*20; s=88; l=80; a=Math.min(1,a*1.65); sz*=.8; break;
+      }
 
-                    // Restore dynamic movement ONLY for sphere
-                    if (appState === 0) {
-                        targetX += Math.sin(t * 8 + phase[i]) * jitter;
-                        targetY += Math.cos(t * 9 + phase[i]) * jitter;
-                        targetZ += Math.sin(t * 7 + phase[i] * 2) * jitter;
-                    }
+      ctx.beginPath();
+      ctx.arc(sx, sy, sz, 0, 6.2832);
+      ctx.fillStyle = `hsla(${h},${s}%,${l}%,${a})`;
+      ctx.fill();
+    }
+  }
 
-                    const sp = appState === 0 ? 0.02 : 0.022; // Smoother attraction for text
-                    vx[i] += (targetX - px[i]) * sp;
-                    vy[i] += (targetY - py[i]) * sp;
-                    vz[i] += (targetZ - pz[i]) * sp;
+  function loop() { update(); draw(); requestAnimationFrame(loop); }
 
-                    // Repulsion (projected to approximate screenspace influence)
-                    if (appState >= 1 && mouseX > 0) {
-                        const scale = FOV / (FOV + pz[i] + CAMERA_Z);
-                        const sx = px[i] * scale + CX;
-                        const sy = py[i] * scale + CY;
+  canvas.addEventListener('mousemove',  e => { mX = e.clientX; mY = e.clientY; });
+  canvas.addEventListener('mouseleave', ()  => { mX = -9999; mY = -9999; });
+  window.addEventListener('resize',     ()  => { ctx.resetTransform(); resize(); });
 
-                        const rdx = sx - mouseX;
-                        const rdy = sy - mouseY;
-                        const d2 = rdx * rdx + rdy * rdy;
-                        if (d2 < REPEL_RADIUS * REPEL_RADIUS && d2 > 1) {
-                            const d = Math.sqrt(d2);
-                            const mag = REPEL_FORCE * (1 - d / REPEL_RADIUS) * 5;
-                            vx[i] += (rdx / d) * mag;
-                            vy[i] += (rdy / d) * mag;
-                        }
-                    }
+  resize(); init(); fSphere(); loop();
 
-                    vx[i] *= 0.82; // Higher friction to reduce bounce
-                    vy[i] *= 0.82;
-                    vz[i] *= 0.82;
+  return { set: buildFormation };
+})();
 
-                    px[i] += vx[i];
-                    py[i] += vy[i];
-                    pz[i] += vz[i];
-                }
-            }
+/* ═══════════════════════════════════════════════════════
+   SCROLL + SECTION ENGINE
+═══════════════════════════════════════════════════════ */
+(function () {
+  const IDS   = ['s-hero','s-about','s-skills','s-projects','s-different','s-contact'];
+  const TOTAL = IDS.length;
+  let   cur   = 0;
 
-            /* ─── Render ────────────────────────────────────────────────────── */
-            function draw() {
-                ctx.fillStyle = 'rgba(5,5,15,0.22)';
-                ctx.fillRect(0, 0, W, H);
+  window.goTo = function (idx) {
+    const max = document.body.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: Math.round(idx * max / (TOTAL-1)), behavior: 'smooth' });
+  };
 
-                // Sort particles briefly for basic transparency depth (every few frames or just partial?)
-                // For perf, we skip full sorting since N=3000 is high for JS sort each frame.
-                // Instead, use depth-based alpha and size.
+  function activate(idx) {
+    if (idx === cur) return;
+    cur = idx;
+    IDS.forEach((id,i) => document.getElementById(id).classList.toggle('active', i===idx));
+    for (let i = 0; i < TOTAL; i++) {
+      const el = document.getElementById('nl-'+i);
+      if (el) el.classList.toggle('active', i===idx);
+    }
+    document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('active', i===idx));
+    PFX.set(idx);
+  }
 
-                for (let i = 0; i < N; i++) {
-                    const zPos = pz[i] + CAMERA_Z;
-                    if (zPos < 10) continue;
+  function onScroll() {
+    const sy  = window.scrollY;
+    const max = document.body.scrollHeight - window.innerHeight;
+    document.getElementById('scroll-bar').style.width = Math.min(100, sy/max*100) + '%';
+    const raw = sy / (max / (TOTAL-1));
+    activate(Math.max(0, Math.min(TOTAL-1, Math.round(raw))));
+  }
 
-                    const scale = FOV / zPos;
-                    const sx = px[i] * scale + CX;
-                    const sy = py[i] * scale + CY;
+  IDS.forEach((id,i) => document.getElementById(id).classList.toggle('active', i===0));
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
 
-                    const spd = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i]);
-                    let a = Math.min(1, (0.18 + spd * 0.1) * (scale * 0.65));
-                    let size = (0.4 + spd * 0.12) * scale;
-                    let h, s, l;
-
-                    if (appState >= 1) {
-                        // High-clarity mode for text: Neon Cyan/White
-                        h = 190;
-                        s = 90;
-                        l = 85; 
-                        a = Math.min(1, a * 1.5); // More opaque
-                        size *= 0.9; // Slightly tighter particles
-                    } else {
-                        h = (hue[i] + t * 25) % 360;
-                        s = 80;
-                        l = 70;
-                    }
-
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, size, 0, 6.2832);
-                    ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${a})`;
-                    ctx.fill();
-                }
-
-                if (appState >= 1 && mouseX > 0) {
-                    const r = REPEL_RADIUS;
-                    const grd = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, r);
-                    grd.addColorStop(0, 'rgba(255,255,255,0.05)');
-                    grd.addColorStop(1, 'rgba(255,255,255,0)');
-                    ctx.beginPath();
-                    ctx.arc(mouseX, mouseY, r, 0, 6.2832);
-                    ctx.fillStyle = grd;
-                    ctx.fill();
-                }
-            }
-
-            /* ─── Main loop ─────────────────────────────────────────────────── */
-            function loop() {
-                update();
-                draw();
-                requestAnimationFrame(loop);
-            }
-
-            /* ─── Interaction ────────────────────────────────────────────────── */
-            canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-            canvas.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; });
-            canvas.addEventListener('dblclick', () => {
-                appState = 0;
-                initSphereTargets();
-                statusEl.textContent = 'interactive sphere ready';
-                tipEl.style.opacity = '0';
-                pwInput.value = '';
-                transcriptEl.textContent = '';
-            });
-
-            pwInput.addEventListener('input', () => {
-                const s = pwInput.value.trim();
-                if (s) { 
-                    transcriptEl.textContent = s;
-                    formWord(s, true); 
-                } else {
-                    transcriptEl.textContent = '';
-                    initSphereTargets();
-                }
-            });
-
-            /* ─── Boot ──────────────────────────────────────────────────────── */
-            resize();
-            initParticles();
-            loop();
-
-            window.addEventListener('resize', () => {
-                ctx.resetTransform();
-                resize();
-            });
-
-        })();
-    </script>
+/* ═══════════════════════════════════════════════════════
+   CURSOR GLOW
+═══════════════════════════════════════════════════════ */
+(function () {
+  const g = document.getElementById('cursor-glow');
+  document.addEventListener('mousemove', e => {
+    g.style.left = e.clientX + 'px';
+    g.style.top  = e.clientY + 'px';
+  });
+})();
+</script>
 </body>
-
 </html>
